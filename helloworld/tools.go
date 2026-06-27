@@ -24,7 +24,6 @@ func NewGetUserInfoTool() (tool.InvokableTool, error) {
 		"get_user_info",
 		"This tool is for checking user information via user ID",
 		func(ctx context.Context, input *GetUserInfoInput) (*GetUserInfoOutput, error) {
-			// TODO: thay bằng logic tra cứu user thật. Hiện trả dữ liệu mẫu.
 			return &GetUserInfoOutput{Name: "Alice", Email: "alice@example.com"}, nil
 		},
 	)

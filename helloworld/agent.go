@@ -22,5 +22,6 @@ func NewAgent(ctx context.Context, chatModel model.ToolCallingChatModel, tools .
 				Tools: tools,
 			},
 		},
+		MaxIterations: 10,
 	})
 }
