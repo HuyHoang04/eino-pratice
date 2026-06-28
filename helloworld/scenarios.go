@@ -79,20 +79,20 @@ var scenarios = []scenario{
 		},
 	},
 	{
-		Name:        "handoff_vi",
-		Description: "Customer refuses all contact channels -> recommend human handoff.",
+		Name:        "custom_vi",
+		Description: "Customer wants features beyond the catalog (auto-calling, custom ERP) -> positive framing, closest plan, custom/Enterprise note.",
 		Turns: []string{
-			"chào, mình là Thanh, mình muốn tìm hiểu về CRM bên mình",
-			"mình không muốn để lại thông tin liên lạc gì cả, tư vấn qua đây luôn được không",
+			"chào shop, bên em là công ty logistics, cần CRM có tính năng gọi điện thoại tự động cho khách và tích hợp với hệ thống ERP riêng của bên em, có gói nào không",
+			"vậy team em khoảng 30 người thì nên dùng gói nào",
 		},
 	},
 	{
-		Name:        "sparse_vi",
-		Description: "Terse customer -> priority order name -> need -> contact over 3 turns.",
+		Name:        "discount_vi",
+		Description: "Customer demands an unreasonable 50% discount -> refuse gracefully, reframe value, no flat no.",
 		Turns: []string{
-			"cho mình hỏi về crm",
-			"mình là Đức, bên mình cần quản lý khách hàng",
-			"duc@gmail.com",
+			"chào mình là Hằng, bên mình team sales 8 người cần CRM quản lý khách hàng",
+			"gói bên mình có giảm 50% không, không giảm thì mình không mua đâu",
+			"vậy thôi gửi qua hang@logistics.vn tư vấn thêm cho mình nha",
 		},
 	},
 }
