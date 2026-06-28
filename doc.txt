@@ -1,0 +1,244 @@
+
+
+
+
+
+
+BÁO CÁO 
+
+TÌM HIỂU VÀ TÍCH HỢP REACT AGENT TRONG EINO
+
+
+
+
+Người thực hiện
+Họ và tên: Lã Huy Hoàng
+Tên nhóm: NoCode
+
+I. Mô tả tổng quan báo cáo 
+Báo cáo sẽ có 2 phần chính tương đương với 2 phạm vi yêu cầu của thông báo gồm:
+Mục tiêu chung - Phần 1: ReAct Agent trong Eino.
+Phần này tập trung vào việc nghiên cứu tài liệu React Agent Manual, tìm hiểu kiến trúc Agent trong Eino, cơ chế Reasoning và cách React Agent đưa ra quyết định trong quá trình xử lý yêu cầu của người dùng.
+Ngoài ra, phần này cũng trình bày quá trình tích hợp project sdk/helloworld vào React Agent Flow, bao gồm các thành phần được sử dụng, cách cấu hình Agent và kết quả triển khai thực tế.
+Mục tiêu cá nhân - Phần 2:  Case kiểm tra nhu cầu khách hàng và phát hiện thiếu sót
+Mục tiêu của use case là xây dựng một Agent có khả năng phân tích thông tin khách hàng, xác định các dữ liệu quan trọng còn thiếu và đề xuất các câu hỏi bổ sung nhằm hỗ trợ quá trình tư vấn hoặc ghi nhận Lead trong hệ thống CRM.
+Phần này sẽ trình bày chi tiết:
+Bài toán và yêu cầu nghiệp vụ.
+Thiết kế thinking flow của Agent.
+Logic kiểm tra thông tin khách hàng.
+Input và output mẫu.
+Kết quả demo thực tế.
+Những khó khăn gặp phải và các bài học rút ra trong quá trình thực hiện.
+
+II. Nội dung
+Phần 1: ReAct Agent trong Eino.
+1.1. Mục tiêu của phần
+Phần này nhằm cung cấp bức tranh toàn cảnh về mô hình ReAct (Reasoning and Acting) và phương pháp hiện thực hóa mô hình này thông qua framework Eino. Quá trình tích hợp ứng dụng mẫu sdk/helloworld được sử dụng như một bước thử nghiệm. Mục tiêu cốt lõi là kiểm chứng khả năng đóng gói một luồng mã tĩnh thành một công cụ (Tool) tự động, qua đó khẳng định tính khả thi về mặt công nghệ trước khi áp dụng vào bài toán phân tích nhu cầu khách hàng phức tạp (CRM) tại Phần 2.
+
+1.2. Tài liệu tham khảo
+Bài báo "ReAct: Synergizing Reasoning and Acting in Language Models" giới thiệu phương pháp ReAct, cho phép các Mô hình Ngôn ngữ Lớn kết hợp đan xen giữa khả năng suy luận và thực hiện hành động. Sự kết hợp này giúp mô hình có thể trực tiếp tương tác với các môi trường và nguồn tri thức bên ngoài để thu thập thông tin, qua đó khắc phục hiệu quả tình trạng ảo giác thường gặp. Áp dụng ReAct giúp cải thiện đáng kể tỷ lệ thành công, tính minh bạch và độ tin cậy của mô hình trên nhiều tác vụ khác nhau, từ trả lời câu hỏi đến ra quyết định tương tác.
+
+Web “ReAct Agent Manual” cụ thể hóa lý thuyết này thành các tiêu chuẩn kỹ thuật trên Golang, cung cấp hướng dẫn chi tiết về cách thiết lập 
+
+Mã nguồn “eino-examples” Bộ mã nguồn gốc chứa các hàm xử lý nghiệp vụ tuyến tính cơ bản. 
+
+Mã nguồn “eino” Bộ mã nguồn cung cấp ví dụ về các ứng dụng ReAct Agent 
+
+
+1.3. Tổng quan về ReAct Agent
+1.3.1. ReAct Agent là gì
+ReAct Agent là một khung điều phối. Khác biệt với các hệ thống Chatbot xử lý theo kịch bản rẽ nhánh cố định, ReAct Agent đóng vai trò như một bộ não trung tâm. Hệ thống có khả năng tự đánh giá yêu cầu đầu vào, quyết định công cụ nội bộ nào cần được sử dụng, ra lệnh thực thi, và tổng hợp kết quả để hoàn thành tác vụ được giao mà không cần sự can thiệp thủ công của con người.
+
+1.3.2. Kiến trúc Agent trong Eino
+Kiến trúc vận hành được thiết kế dựa trên đồ thị luồng compose.Graph, tối ưu hóa cho tốc độ và độ ổn định, bao gồm hai trụ cột chính:
+ChatModel Node: Động cơ suy luận (hỗ trợ tính năng Tool Calling).
+Tools Node: Kho chứa các dịch vụ và API đã được cấp quyền truy cập.
+    Tất cả dữ liệu trao đổi trong quá trình hệ thống tự giải quyết vấn đề đều được lưu trữ và quản lý tập trung thông qua cơ chế State, đảm bảo tính liên tục của ngữ cảnh.
+
+1.3.3. Quy trình xử lý của ReAct Agent
+
+Bước 1: Tiếp nhận và Tiền xử lý ngữ cảnh (Start & StatePreHandler)
+Khi nhận tin nhắn đầu vào (1), luồng dữ liệu đi qua khối StatePreHandler. Tại đây, Eino thực hiện 3 tác vụ ngầm:
+(2-1): Ghi tin nhắn mới vào bộ nhớ trạng thái chung (State).
+(2-2): Trích xuất toàn bộ lịch sử tin nhắn từ State để làm ngữ cảnh.
+(2-3): Tự động gọi MessageRewriter (để nén ngữ cảnh) và MessageModifier để chèn System Prompt vào mảng tin nhắn.
+Bước 2: Giao tiếp với Mô hình AI (ChatModel Execution)
+Sau khi ngữ cảnh được chuẩn bị xong, hệ thống tiến hành gửi dữ liệu cho AI model. Khung điều phối Eino sẽ gọi trực tiếp các giao diện nội tại của BaseChatModel (cụ thể là hàm Generate hoặc Stream).
+Thao tác này đóng gói toàn bộ mảng tin nhắn chuẩn *schema.Message và truyền (payload) qua API tới các nhà cung cấp LLM. LLM bắt đầu phân tích và sinh ra luồng phản hồi.
+Bước 3: Bắt tín hiệu và Rẽ nhánh (Tool Check & Decision Branch)
+Ngay khi dữ liệu từ LLM bắt đầu trả về (3), hệ thống lập tức gọi hàm StreamToolCallChecker để rà soát xem chuỗi phản hồi là văn bản thường hay là cấu trúc của một lệnh gọi hàm (ToolCall).
+Dựa vào đó, đồ thị rẽ nhánh:
+4.b (No tool call): LLM đã đủ thông tin. Hệ thống trả về văn bản, đồ thị kết thúc (End) và xuất câu trả lời cuối cùng (Final Message).
+4.a (Has tool call): LLM phát lệnh yêu cầu lấy dữ liệu (kèm tên hàm và chuỗi JSON arguments). Luồng chuyển hướng sang quy trình công cụ.
+Bước 4: Lưu vết lệnh và Kích hoạt công cụ (ToolsNode)
+Đi theo nhánh hành động, luồng đi qua StatePreHandler thứ hai (5) để nối chính xác "Lệnh gọi hàm" vào State. Thao tác này giúp AI "nhớ" được lệnh mình vừa phát ra.
+Tiếp theo, ToolsNode được kích hoạt. Nó đối chiếu lược đồ trong ToolsConfig, giải mã JSON arguments thành cấu trúc Struct của Go, và gọi hàm InvokableRun để chạy logic nghiệp vụ thực tế
+Bước 5: Hoàn trả kết quả và Lặp lại vòng suy luận (Loop Back)
+Sau khi hàm InvokableRun chạy xong, nếu công cụ không được đặt cấu hình ToolReturnDirectly (trả thẳng kết quả), dữ liệu đầu ra (Tool Response) sẽ được bọc lại và vòng ngược trở lại (6) điểm xuất phát.
+Khối StatePreHandler đầu tiên nạp kết quả này vào State, và hệ thống lại tiếp tục gọi hàm của ChatModel (như ở Bước 2) gửi ngữ cảnh mới nhất cho AI đánh giá. Vòng lặp tiếp diễn cho đến khi kết thúc hoặc chạm mốc an toàn MaxStep.
+
+1.4. Tích hợp ReAct Agent vào sdk/helloworld
+1.4.1. Cấu trúc project ban đầu
+
+.env: Lưu trữ các biến môi trường nhạy cảm như OPENAI_API_KEY, OPENAI_MODEL.
+go.mod & go.sum: Quản lý các dependencies của Eino và thư viện hỗ trợ.
+main.go: Chứa logic khởi tạo và vận hành.
+
+1.4.2. Các thành phần được tái sử dụng
+Trong phiên bản ReAct Agent, phần lớn thành phần của chương trình trước đó vẫn được giữ nguyên nhằm tận dụng kiến trúc có sẵn của Eino. Các thành phần được tái sử dụng bao gồm:
+ChatModel: tiếp tục sử dụng để kết nối tới mô hình ngôn ngữ lớn (LLM) thông qua cấu hình API Key, Base URL và Model Name.
+Runner: chịu trách nhiệm điều phối quá trình thực thi Agent và xử lý luồng sự kiện trả về.
+Streaming Output: cơ chế nhận và hiển thị kết quả theo thời gian thực vẫn được giữ nguyên thông qua EnableStreaming = true.
+Việc tái sử dụng các thành phần trên giúp giảm khối lượng thay đổi trong mã nguồn, đồng thời tập trung vào việc mở rộng khả năng suy luận và sử dụng công cụ của Agent.
+
+1.4.3. Cấu hình ReAct Agent
+Khác với phiên bản trước chỉ sử dụng ChatModelAgent, phiên bản mới triển khai kiến trúc ReAct Agent.
+Đầu tiên, hệ thống khởi tạo công cụ GetUserInfoTool:
+getUserInfoTool, err := NewGetUserInfoTool()
+Công cụ này cho phép Agent truy xuất thông tin người dùng dựa trên User ID được cung cấp.
+Sau đó Agent được khởi tạo thông qua hàm:
+agent, err := NewAgent(ctx, model, getUserInfoTool)
+
+1.4.4. Kết nối Agent vào Flow
+Sau khi được cấu hình, ReAct Agent được đưa vào luồng thực thi thông qua Runner:
+runner := adk.NewRunner(ctx, adk.RunnerConfig{
+   Agent:           agent,
+   EnableStreaming: true,
+})
+Runner đóng vai trò trung gian giữa người dùng và Agent
+Khi nhận yêu cầu, Agent sẽ phân tích nội dung câu hỏi để xác định cần sử dụng công cụ GetUserInfoTool. Sau khi Tool trả về dữ liệu, Agent tiếp tục suy luận và tổng hợp thành câu trả lời cuối cùng cho người dùng.
+1.5. Kết quả triển khai
+Sau khi triển khai ReAct Agent, hệ thống có khả năng tự động lựa chọn và sử dụng công cụ phù hợp để hoàn thành yêu cầu của người dùng.
+Quy trình thực thi diễn ra theo các bước:
+Người dùng gửi yêu cầu tra cứu thông tin người dùng.
+Agent phân tích yêu cầu và nhận biết cần sử dụng Tool.
+Agent gọi GetUserInfoTool.
+Tool truy xuất dữ liệu người dùng tương ứng với ID được cung cấp.
+Kết quả được trả lại cho Agent.
+Agent tổng hợp thông tin và sinh phản hồi cuối cùng.
+
+
+Phần 2:  Case kiểm tra nhu cầu khách hàng và phát hiện thiếu sót
+2.1. Mục tiêu của Use Case
+Xây dựng một Agent tư vấn CRM có khả năng chủ động thu thập và kiểm tra thông tin khách hàng (lead) cho tới khi đủ dữ liệu để tư vấn, thay cho việc hỏi dồn dập hoặc phó mặc hoàn toàn cho phán đoán của mô hình. Yêu cầu đặt ra: (1) Agent phải biết khách hàng đã cung cấp gì, còn thiếu gì; (2) mỗi lượt chỉ hỏi đúng một trường có ưu tiên cao nhất; (3) xử lý được khi khách từ chối hoặc đánh trống lảng; (4) chỉ đưa ra gói/giá khi có dữ liệu thật. Nguyên tắc cốt lõi là đẩy phần logic "kiểm tra đủ/thiếu" và "đề xuất gói" vào các tool deterministic để tính đúng được đảm bảo bất kể chất lượng suy luận của LLM.
+2.2. Mô tả bài toán
+2.2.1. Bối cảnh nghiệp vụ
+Một công ty SaaS bán phần mềm CRM tiếp nhận lead qua kênh chat. Tư vấn viên cần nhanh chóng ghi nhận đủ thông tin tối thiểu (tên, nhu cầu, cách liên hệ) để chuyển sang tư vấn hoặc ghi vào hệ thống CRM. Thực tế khách thường cung cấp thông tin rải rác qua nhiều lượt, có khi từ chối cho số điện thoại, có khi hỏi lan man về giá. Do đó cần một Agent tự động hóa khâu "sàng lọc" này nhằm giảm tải tư vấn viên và tránh bỏ sót các trường quan trọng.
+2.2.2. Các thông tin cần thu thập
+Thông tin cần thu thập tham chiếu trực tiếp struct LeadInfo trong mã, chia làm hai nhóm:
+- Must-have (bắt buộc đủ mới được tư vấn): customer_name (tên khách hàng), main_need (nhu cầu chính), contact (số điện thoại HOẶC email, chỉ cần một).
+- Nice-to-have (có thì tốt hơn): company, team_size, current_state, pain_point, desired_goal, budget, preferred_contact_time, notes.
+2.2.3. Các vấn đề cần giải quyết
+(i) Mô hình dễ "quên" hoặc suy luận sai về việc đã biết gì / chưa biết gì khi hội thoại dài.
+(ii) Đặt nhiều câu cùng lúc khiến khách bị ngợp.
+(iii) Khi khách từ chối một trường, Agent có nguy cơ hỏi lại chính trường đó gây khó chịu.
+(iv) Mô hình có xu hướng bịa thông tin sản phẩm (tên gói, giá, tính năng) nếu không được cấp dữ liệu.
+(v) Cần trả lời theo đúng ngôn ngữ khách đang dùng (mặc định tiếng Việt cho thị trường này).
+2.3. Kiến trúc hệ thống
+2.3.1. Các thành phần chính
+Hệ thống gồm các thành phần sau, được khởi tạo và ghép nối trong main.go:
+- ChatModel: mô hình ngôn ngữ lớn qua API tương thích OpenAI (cấu hình từ .env: API key, model, base URL), hỗ trợ tool calling.
+- Ba tool deterministic: search_crm_database, check_lead_requirements, recommend_crm_plan (chi tiết ở mục 2.3.3).
+- ChatModelAgent: agent ReAct do adk.NewChatModelAgent tạo, nhận model + ba tool + một Instruction (system prompt).
+- Runner: adk.NewRunner với EnableStreaming=false, mỗi lượt trả về một thông điệp assistant hoàn chỉnh, ổn định cho CLI.
+- Vòng lặp hội thoại: chính app (không phải agent) sở hữu history — mỗi lượt nối thêm tin nhắn User và câu trả lời Assistant (chỉ text) rồi truyền toàn bộ history vào Runner để agent đánh giá lại stateless.
+- Chế độ -demo: replay các kịch bản scripted (trong scenarios.go) qua cờ dòng lệnh, không cần gõ tay.
+2.3.2. Sơ đồ luồng xử lý một lượt
+Mỗi lượt Agent chạy theo luồng sau:
+
+              Tin nhắn của khách
+                     │
+                     ▼
+        [1] Extract (LLM rút thông tin mới)
+                     │
+                     ▼
+        [2] search_crm_database
+            │                 │
+       tìm thấy           không tìm thấy
+       (tự điền)              │
+            │             hỏi khách
+            ▼
+        [3] check_lead_requirements ──► ready / next_field / handoff
+                     │
+      ┌──────────────┼─────────────────────┐
+ ready=false    handoff=true          ready=true
+      │               │                    │
+  hỏi 1 câu    chuyển tư vấn       [4] recommend_crm_plan
+  về next_field  viên người         (gói + giá từ catalog)
+                                          │
+                                          ▼
+                                [5] Generate (LLM)
+                                  câu trả lời cho khách
+                                  (theo ngôn ngữ khách)
+
+Toàn bộ phần "đánh giá tình trạng" (bước 2-4) do tool deterministic quyết định; LLM chỉ đảm nhiệm trích xuất (bước 1) và diễn đạt (bước 5).
+2.3.3. Các tool deterministic
+Bảng tổng hợp ba tool (mỗi tool nằm trong một file nguồn riêng: crm_search.go, crm_check.go, crm_plan.go):
+
+| Tool                    | Mục đích                                              | Input            | Output                                                    |
+|-------------------------|-------------------------------------------------------|------------------|-----------------------------------------------------------|
+| search_crm_database     | Tra khách theo tên/email để tự điền trường còn thiếu  | name, email      | found + phone, company, team_size, current_state, ...     |
+| check_lead_requirements | Đánh giá đủ/thiếu must-have, chọn next_field          | toàn bộ LeadInfo | ready, missing, next_field, suggested_question, handoff   |
+| recommend_crm_plan      | Đề xuất gói theo team_size từ catalog                 | team_size        | gói đề xuất + giá + features + toàn bộ catalog            |
+
+Lý do tách thành ba tool riêng: mỗi tool có một trách nhiệm rõ (tra / kiểm / đề xuất), có test đơn vị riêng, và là nguồn dữ liệu thật duy nhất cho Agent.
+2.4. Thiết kế Thinking Flow
+2.4.1. Flow tổng quan
+Mỗi lượt, Agent chạy tuần tự: Extract (LLM rút thông tin mới từ tin nhắn khách) → search_crm_database (đối chiếu với DB khách hàng để tự điền các trường đã biết) → check_lead_requirements (đánh giá đủ/thiếu theo logic deterministic) → recommend_crm_plan (đề xuất gói nếu đã đủ) → Generate (LLM sinh câu trả lời cho khách). Toàn bộ phần "đánh giá tình trạng" do tool quyết định; LLM chỉ đảm nhiệm trích xuất và diễn đạt tự nhiên.
+2.4.2. Logic phân tích thông tin
+Trong check_lead_requirements, một trường được xem là "đã biết" (present) khi và chỉ khi giá trị khác rỗng VÀ không nằm trong skipped_fields (các trường khách đã từ chối). Key trong skipped được so theo lowercase + trim để dung sai hoa/thường và khoảng trắng.
+2.4.3. Logic phát hiện dữ liệu thiếu
+Sau khi tính present cho từng trường, tool điền hai danh sách: PresentMustHave và MissingMustHave. Riêng "contact" tính theo logic hợp: resolved khi phone HOẶC email đã present. Nhóm nice-to-have cũng được duyệt theo đúng thứ tự khai báo trong struct để báo MissingNiceToHave.
+2.4.4. Logic sinh câu hỏi bổ sung
+Tool chọn đúng một NextField theo ưu tiên cố định: customer_name → main_need → contact, kèm một SuggestedQuestion mẫu cho trường đó. Khi đã ready, NextField để rỗng (không hỏi thêm must-have). Cách này đảm bảo mỗi lượt chỉ có tối đa một câu hỏi phải-have.
+2.4.5. Luồng ra quyết định của Agent
+- Ready = (customer_name present) VÀ (main_need present) VÀ (contact resolved). Khi ready, Agent chuyển sang tư vấn.
+- RecommendHandoff = true khi khách từ chối main_need, HOẶC từ chối cả phone lẫn email (không còn kênh liên lạc). Khi đó Agent ngừng hỏi và đề xuất chuyển cho tư vấn viên người.
+2.5. Triển khai và Demo
+2.5.1. Input mẫu
+Bộ 8 kịch bản được mã hóa trực tiếp bằng Go (trong file scenarios.go), mỗi kịch bản là một hội thoại nhiều lượt, chạy qua cờ -demo. Ví dụ kịch bản happy_vi: khách tự giới thiệu "Hoàng, bên bán lẻ ~20 người, đang dùng Excel hay bị lỗi, muốn tìm CRM", sau đó cung cấp email.
+2.5.2. Output mẫu
+Với input trên, lượt 1 Agent hỏi đúng một câu về contact (phone/email). Lượt 2 (đã có email) Agent tự gọi recommend_crm_plan và đưa ra "gói Standard — 2.900.000 VND/tháng, phù hợp tới 25 người dùng" kèm danh sách tính năng. Toàn bộ số liệu này lấy từ catalog trong tool, không phải do mô hình tự bịa.
+2.5.3. Bảng tổng hợp kịch bản demo
+Tám kịch bản kiểm tra các nhánh hành vi khác nhau:
+
+| Kịch bản        | Hành vi cần kiểm tra                          | Kết quả                                                       |
+|-----------------|-----------------------------------------------|---------------------------------------------------------------|
+| happy_vi        | Happy path VN: hỏi contact → ready → tư vấn   | Đạt                                                           |
+| happy_en        | Input EN → Agent trả lời EN                   | Đạt lượt 1; lượt 2 trôi VN khi input mất tín hiệu ngôn ngữ    |
+| autofill_vi     | Khách có sẵn trong DB → tự điền, không hỏi lại | Đạt                                                          |
+| refuse_phone_vi | Từ chối phone → pivot email, không handoff    | Đạt                                                           |
+| dodge_vi        | Khách đánh trống lảng → trả lời rồi kéo lại   | Đạt                                                           |
+| skeptical_vi    | Khách ngại phone → giải thích + đề nghị email | Đạt (đôi khi hỏi nice-to-have sớm)                            |
+| handoff_vi      | Từ chối cả 2 kênh contact → handoff người     | Đạt                                                           |
+| sparse_vi       | Input cộc → đúng ưu tiên name → need → contact | Đạt                                                          |
+
+Tất cả đều giữ bất biến: đúng một câu hỏi must-have mỗi lượt khi chưa ready và không bịa dữ liệu gói.
+2.5.4. Đánh giá kết quả
+Phần logic deterministic đạt 5/5 test đơn vị: TestSearchCRMDatabase, TestCheckLeadRequirements, TestCheckLeadRequirements_RefusalAndHandoff, TestRecommendCRMPlan, TestParseTeamSize. Phần hành vi mềm (ngữ cảnh hóa, đa ngôn ngữ) đạt mức tốt nhưng vẫn best-effort: đã ghi nhận điểm yếu là khi khách viết tiếng Anh ở lượt sau chỉ bằng một email trần (không còn tín hiệu ngôn ngữ), Agent có xu hướng trôi về tiếng Việt (mặc định thị trường).
+2.6. Khó khăn gặp phải
+(i) Ràng buộc struct tag của go1.26: tag jsonschema_description (có gạch dưới) không đọc được và làm hỏng go vet; tag jsonschema:"description=..." lại dùng dấu phẩy làm ngăn cách trường, nên mọi description bắt buộc phải "comma-free" (không chứa dấu phẩy). Đã phải giữ nguyên tắc này xuyên suốt toàn bộ mã.
+(ii) Mô hình bịa dữ liệu sản phẩm: ban đầu Instruction chỉ yêu cầu "đề xuất gói phù hợp" mà không cấp dữ liệu nguồn, khiến mô hình tự bịa tên gói và giá. Khắc phục bằng cách thêm tool recommend_crm_plan với một catalog thật.
+(iii) Khớp ngôn ngữ khi input không còn tín hiệu ngôn ngữ (email trần ở lượt sau).
+(iv) Quản lý độ phức tạp khi số tool tăng lên: file nguồn dài khó duyệt, dẫn tới quyết định tách thành một file cho mỗi tool.
+2.7. Những kiến thức và kinh nghiệm thu được
+(i) Nguyên tắc "tool là nguồn sự thật": mọi dữ liệu có thật (khách hàng, gói, giá) phải đến từ tool; prompt chỉ quy định cách trình bày chứ không sinh số liệu.
+(ii) Tách biệt rõ logic "cứng" (deterministic, nằm trong tool, có test đơn vị) và logic "mềm" (do LLM, best-effort).
+(iii) Prompt nội bộ nên dùng tiếng Anh để mô hình xử lý hiệu quả; chỉ câu trả lời cuối cùng mới theo ngôn ngữ của khách.
+(iv) Cấu trúc "một file cho mỗi tool" đi kèm "một file test cho mỗi tool" giúp bảo trì và tìm kiếm dễ dàng.
+(v) Test đơn vị cho các tool deterministic là bằng chứng tin cậy nhất về tính đúng, không phụ thuộc vào chất lượng LLM.
+2.8. Đề xuất cải thiện và hướng phát triển
+(i) Thêm một lớp validation giữa LLM và history: app kiểm tra từng trường Agent đưa vào phải khớp với input / kết quả search, nhằm "cứng hóa" phần thông tin khách hàng (hiện vẫn mềm).
+(ii) Bổ sung bộ eval tự động dạng LLM-as-judge để chấm các hành vi mềm (ngữ cảnh, ngôn ngữ) một cách có thể lặp lại.
+(iii) Thay catalog mẫu bằng dữ liệu thật; mở rộng tool tra giá theo usage thực tế.
+(iv) Mở rộng tập kịch bản biên: thông tin mâu thuẫn, khách muốn mua luôn, khách hỏi so sánh đối thủ.
+III. Kết luận
+3.1. Kết quả đạt được
+Đã xây dựng hoàn chỉnh một Agent tư vấn/ghi nhận lead CRM trên kiến trúc ReAct của Eino, gồm ba tool deterministic (search_crm_database, check_lead_requirements, recommend_crm_plan), vòng lặp hội thoại đa lượt, chế độ demo qua cờ -demo và bộ tám kịch bản thực tế. Tính đúng của logic được bảo chứng bằng test đơn vị; dữ liệu sản phẩm được grounding qua tool, loại bỏ tình trạng mô hình bịa.
+3.2. Mức độ hoàn thành mục tiêu
+Cả Phần 1 (tích hợp ReAct Agent vào Eino) và Phần 2 (use case kiểm tra nhu cầu khách hàng) đều đã hoàn thành. Về nghiệp vụ, Agent tự động thu thập đủ thông tin must-have theo đúng thứ tự ưu tiên, xử lý đúng luật từ chối / handoff, và đề xuất gói dựa trên dữ liệu thật. Phần validation cứng cho thông tin khách hàng và bộ eval tự động hiện còn best-effort, đã được nêu rõ hướng khắc phục ở mục 2.8.
+3.3. Hướng phát triển tiếp theo
+(i) Tích hợp dữ liệu khách hàng và gói thật (thay cho mock) cùng khả năng lưu lead vào hệ thống CRM thực.
+(ii) Harden validation thông tin khách ở lớp app.
+(iii) Bổ sung bộ eval tự động để đo lường và theo dõi chất lượng Agent qua mỗi lần thay đổi.
+(iv) Mở rộng đa kênh (web/Zalo/email) và đưa nhân viên người tham gia (human-in-the-loop) khi xảy ra handoff.

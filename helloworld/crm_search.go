@@ -9,9 +9,12 @@ import (
 )
 
 // CRMSearchInput is the argument schema for the search_crm_database tool.
+// Lookup is by a unique identifier only — email or phone. A name is deliberately
+// NOT accepted: several customers may share the same name, so it can never be
+// relied on to identify the right person.
 type CRMSearchInput struct {
-	Name  string `json:"name,omitempty" jsonschema:"description=Customer name to look up"`
 	Email string `json:"email,omitempty" jsonschema:"description=Customer email to look up"`
+	Phone string `json:"phone,omitempty" jsonschema:"description=Customer phone number to look up"`
 }
 
 // CRMRecord is a customer record, returned by search_crm_database.
@@ -46,21 +49,23 @@ var crmDatabase = []CRMRecord{
 	},
 }
 
-// NewSearchCRMDatabaseTool looks up a customer by name or email (case-insensitive) to auto-fill fields.
+// NewSearchCRMDatabaseTool looks up a customer by email or phone (case-insensitive;
+// phone matched on digits only). Both uniquely identify one person, unlike a name
+// which several customers may share, so the lookup always resolves to the right
+// record. Used to auto-fill fields such as company, team size, or phone.
 func NewSearchCRMDatabaseTool() (tool.InvokableTool, error) {
 	return utils.InferTool(
 		"search_crm_database",
-		"Look up an existing customer in the CRM database by name or email. Use this to auto-fill missing fields such as a phone number before asking the customer.",
+		"Look up an existing customer in the CRM database by their email or phone — these uniquely identify one person, unlike a name which may be shared by several customers. Use this to auto-fill fields such as the customer's company, team size, or phone before asking them.",
 		func(ctx context.Context, input *CRMSearchInput) (*CRMRecord, error) {
-			name := strings.ToLower(strings.TrimSpace(input.Name))
 			email := strings.ToLower(strings.TrimSpace(input.Email))
-			if name == "" && email == "" {
+			phone := normalizePhone(input.Phone)
+			if email == "" && phone == "" {
 				return &CRMRecord{Found: false}, nil
 			}
 			for _, rec := range crmDatabase {
-				matchName := name != "" && strings.EqualFold(rec.Name, name)
-				matchEmail := email != "" && strings.EqualFold(rec.Email, email)
-				if matchName || matchEmail {
+				if (email != "" && strings.EqualFold(rec.Email, email)) ||
+					(phone != "" && normalizePhone(rec.Phone) == phone) {
 					matched := rec
 					matched.Found = true
 					matched.Source = "CRM database"
@@ -70,4 +75,16 @@ func NewSearchCRMDatabaseTool() (tool.InvokableTool, error) {
 			return &CRMRecord{Found: false}, nil
 		},
 	)
+}
+
+// normalizePhone keeps digits only so "0909.112.233", "0909 112 233" and
+// "0909112233" all match the same record.
+func normalizePhone(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
