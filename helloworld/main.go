@@ -5,74 +5,72 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/schema"
-
-	"github.com/cloudwego/eino-ext/components/model/openai"
-
+	"github.com/cloudwego/eino/compose"
 	"github.com/joho/godotenv"
 )
 
+// defaultQuestion là câu hỏi mẫu khi chạy CLI không truyền tham số.
+const defaultQuestion = "Giải thích cho mình về ý nghĩa của Áo tấc."
+
 func main() {
-	// load .env file
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
 	ctx := context.Background()
 
-	// 初始化模型
-	model, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		APIKey:  os.Getenv("OPENAI_API_KEY"),
-		Model:   os.Getenv("OPENAI_MODEL"),
-		BaseURL: os.Getenv("OPENAI_BASE_URL"),
-		ByAzure: func() bool {
-			return os.Getenv("OPENAI_BY_AZURE") == "true"
-		}(),
-	})
+	chatModel, err := buildChatModel(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	agent, err := buildAgent(ctx, chatModel)
+	if err != nil {
+		log.Fatal(err)
+	}
+	runnable, err := buildChatChain(ctx, agent, chatModel)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Init tools
-	getUserInfoTool, err := NewGetUserInfoTool()
+	// Chế độ chạy:
+	//   go run .               → CLI với câu hỏi mẫu
+	//   go run . "<câu hỏi>"   → CLI với câu hỏi truyền vào
+	//   go run . eval          → chạy 5 test case, ghi kết quả ra evaluation.md
+	if len(os.Args) >= 2 && os.Args[1] == "eval" {
+		if err := runEval(ctx, runnable); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
+	question := defaultQuestion
+	if len(os.Args) >= 2 {
+		question = strings.Join(os.Args[1:], " ")
+	}
+	runCLI(ctx, runnable, question)
+}
+
+// runCLI chạy chuỗi chat cho một câu hỏi và in câu trả lời + gợi ý ra terminal.
+func runCLI(ctx context.Context, runnable compose.Runnable[string, *ChatResponse], question string) {
+	fmt.Printf("🟣 Câu hỏi: %s\n", question)
+	fmt.Println("⏳ Đang xử lý (ReAct trả lời → sinh gợi ý)...")
+	fmt.Println(strings.Repeat("─", 60))
+
+	resp, err := runnable.Invoke(ctx, question)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("lỗi: %v", err)
 	}
 
-	// Tạo ReAct Agent
-	agent, err := NewAgent(ctx, model, getUserInfoTool)
-	if err != nil {
-		log.Fatal(err)
+	fmt.Println(resp.Answer)
+	fmt.Println(strings.Repeat("─", 60))
+	if len(resp.Suggestions) == 0 {
+		fmt.Println("💡 (không có gợi ý)")
+		return
 	}
-
-	// 创建 Runner
-	runner := adk.NewRunner(ctx, adk.RunnerConfig{
-		Agent:           agent,
-		EnableStreaming: true,
-	})
-
-	// 执行对话
-	input := []adk.Message{
-		schema.UserMessage("Please look up user information for user id 12345."),
-	}
-
-	events := runner.Run(ctx, input)
-	for {
-		event, ok := events.Next()
-		if !ok {
-			break
-		}
-
-		if event.Err != nil {
-			log.Printf("错误: %v", event.Err)
-			break
-		}
-
-		if msg, err := event.Output.MessageOutput.GetMessage(); err == nil {
-			fmt.Printf("Agent: %s\n", msg.Content)
-		}
+	fmt.Println("💡 Gợi ý câu hỏi tiếp:")
+	for i, s := range resp.Suggestions {
+		fmt.Printf("  %d. %s\n", i+1, s)
 	}
 }
